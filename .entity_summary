@@ -1,3 +1,0 @@
-- Kategorien (kategorien): name[string/text], farbe[lookup/select]
-- Kontakte (kontakte): vorname[string/text], nachname[string/text], email[string/email], telefon[string/tel], firma[string/text], kategorie[applookup/select], notiz[string/textarea]
-  → kategorie links to app_id 69d8acd057d46e9b115574a9

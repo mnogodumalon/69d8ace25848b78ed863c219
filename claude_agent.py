@@ -204,7 +204,12 @@ async def main():
         options.agents = agents
 
     # Session-Resume Unterstützung
+    # BUG: agents + resume crashes the Claude CLI (tested SDK 0.1.50 + 0.1.58).
+    # Skip resume when agents are registered — Phase 2 doesn't need conversation history.
     resume_session_id = os.getenv('RESUME_SESSION_ID')
+    if agents and resume_session_id:
+        print(f"[KLAR] Skipping resume (agents + resume = SDK crash)")
+        resume_session_id = None
     if resume_session_id:
         options.resume = resume_session_id
         print(f"[KLAR] Resuming session: {resume_session_id}")
@@ -350,13 +355,20 @@ branching logic, or heavy state tracking like budgets/progress across steps). \
 Ask yourself: "Can this workflow be handled by the dashboard + existing CRUD dialogs?" \
 If YES → skip intent UIs, just run 'npm run build' and STOP. \
 \
-SKIP intent UIs entirely when: \
+SKIP intent UIs when: \
 - The app has fewer than 4 entities \
 - Workflows can be handled by the dashboard + existing CRUD dialogs \
 - There are no workflows spanning 3+ entities in a single multi-step sequence \
 \
 Only proceed if there is at least ONE workflow that genuinely \
-cannot fit in the dashboard because of its complexity.
+cannot fit in the dashboard because of its complexity. \
+\
+**IF SKIPPING:** The dashboard currently shows WorkflowPlaceholders (loading skeletons). \
+You MUST clean them up before stopping: \
+1. Edit src/App.tsx — remove the WorkflowPlaceholders import and replace \
+   `<><div className="mb-8"><WorkflowPlaceholders /></div><DashboardOverview /></>` \
+   with just `<DashboardOverview />` \
+2. Run 'npm run build' and STOP.
 
 2. IF intent UIs are justified, DISPATCH 'intent_builder' subagents IN PARALLEL (in a single response) for each intent:
    - File path: src/pages/intents/{PascalCaseName}Page.tsx
@@ -460,13 +472,20 @@ branching logic, or heavy state tracking like budgets/progress across steps). \
 Ask yourself: "Can the dashboard agent build this as a section or interactive widget \
 on the main page?" If YES → it belongs in the dashboard, NOT in an intent UI. \
 \
-SKIP intent UIs entirely (just run 'npm run build' and STOP) when: \
+SKIP intent UIs when: \
 - The app has fewer than 4 entities \
 - Workflows can be handled by the dashboard + existing CRUD dialogs \
 - There are no workflows spanning 3+ entities in a single multi-step sequence \
 \
 Only proceed with intent UIs if there is at least ONE workflow that genuinely \
-cannot fit in the dashboard because of its complexity.
+cannot fit in the dashboard because of its complexity. \
+\
+**IF SKIPPING:** The dashboard currently shows WorkflowPlaceholders (loading skeletons). \
+You MUST clean them up before stopping: \
+1. Edit src/App.tsx — remove the WorkflowPlaceholders import and replace \
+   `<><div className="mb-8"><WorkflowPlaceholders /></div><DashboardOverview /></>` \
+   with just `<DashboardOverview />` \
+2. Run 'npm run build' and STOP.
 
 2. IF intent UIs are justified, DISPATCH ALL SUBAGENTS IN PARALLEL (in a single response):
    a) For EACH intent, dispatch 'intent_builder' with:
@@ -566,4 +585,11 @@ CRITICAL: Dispatch ALL subagents in a SINGLE response for maximum parallelism.""
                 }), flush=True)
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    import sys
+    try:
+        asyncio.run(main())
+    except Exception as e:
+        print(f"\n[KLAR] FATAL ERROR: {type(e).__name__}: {e}", file=sys.stderr, flush=True)
+        import traceback
+        traceback.print_exc(file=sys.stderr)
+        sys.exit(1)
